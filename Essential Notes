@@ -1,0 +1,28 @@
+This is the file used to take essential notes
+
+Port
+5432
+
+Database
+expense_db_8hqw
+
+Username
+expense_db_8hqw_user
+
+Password
+Qmhf8Fv27WV67DqFVAXc2zJSbWpCQ7T2
+
+
+Internal Database URL
+postgresql://expense_db_8hqw_user:Qmhf8Fv27WV67DqFVAXc2zJSbWpCQ7T2@dpg-d0m9ec9r0fns73ce2mm0-a/expense_db_8hqw
+
+
+External Database URL
+postgresql://expense_db_8hqw_user:Qmhf8Fv27WV67DqFVAXc2zJSbWpCQ7T2@dpg-d0m9ec9r0fns73ce2mm0-a.oregon-postgres.render.com/expense_db_8hqw
+
+
+PSQL Command
+PGPASSWORD=Qmhf8Fv27WV67DqFVAXc2zJSbWpCQ7T2 psql -h dpg-d0m9ec9r0fns73ce2mm0-a.oregon-postgres.render.com -U expense_db_8hqw_user expense_db_8hqw
+
+
+Access Control
