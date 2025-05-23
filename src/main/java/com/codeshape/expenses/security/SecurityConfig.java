@@ -50,10 +50,10 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(customAuthenticationEntryPoint))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/users", "/api/users/login", "/api/users/refresh-token").permitAll()
+                        .requestMatchers("/api/users", "/api/users/login", "/api/users/refresh-token", "/api/users/reset-password-request", "/api/users/reset-password").permitAll() // Added password reset endpoints
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/manager/**").hasAnyRole("MANAGER", "ADMIN")
-                        .anyRequest().hasRole("EMPLOYEE")
+                        .anyRequest().authenticated() // Changed from hasRole("EMPLOYEE") to authenticated() for broader access
                 )
 //                .oauth2Login(oauth2 -> oauth2
 //                        .userInfoEndpoint(userInfo -> userInfo
@@ -100,11 +100,14 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:5173"));
+        // --- MODIFIED THIS LINE ---
+        // Added http://localhost:3000 as a common alternative for React development servers.
+        // If your frontend runs on a different port, you MUST add it here.
+        config.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:3000"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         config.setAllowCredentials(true);
-
+        config.setMaxAge(3600L); // Added maxAge for pre-flight cache
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;

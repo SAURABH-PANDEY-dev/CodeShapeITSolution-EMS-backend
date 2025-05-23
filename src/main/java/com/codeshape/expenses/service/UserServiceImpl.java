@@ -2,6 +2,7 @@ package com.codeshape.expenses.service;
 
 import com.codeshape.expenses.dto.RefreshTokenRequest;
 import com.codeshape.expenses.exception.DuplicateEmailException;
+import com.codeshape.expenses.model.PasswordResetToken;
 import com.codeshape.expenses.model.User;
 import com.codeshape.expenses.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,11 +20,22 @@ import com.codeshape.expenses.dto.LoginRequest;
 import com.codeshape.expenses.exception.DuplicateEmailException;
 import com.codeshape.expenses.dto.JwtResponse;
 import com.codeshape.expenses.security.JwtService;
+import java.time.LocalDateTime;
+import java.util.Optional;
+import java.util.UUID;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import com.codeshape.expenses.repository.PasswordResetTokenRepository;
+import com.codeshape.expenses.service.EmailService;
+import org.springframework.web.bind.annotation.RequestParam;
+
+
+
 /**
  * Implementation class for UserService.
  * Handles business logic related to User operations.
  */
 @Service
+
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
@@ -31,11 +43,20 @@ public class UserServiceImpl implements UserService {
     // Constructor injection (preferred way)
     @Autowired
     private final JwtService jwtService;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final EmailService emailService;
 
-    public UserServiceImpl(UserRepository userRepository) {
+    @Autowired
+    public UserServiceImpl(UserRepository userRepository,
+                           JwtService jwtService,
+                           PasswordResetTokenRepository passwordResetTokenRepository,
+                           EmailService emailService) {
         this.userRepository = userRepository;
-        this.jwtService = new JwtService(); // manually inject here for now
+        this.jwtService = jwtService;
+        this.passwordResetTokenRepository = passwordResetTokenRepository;
+        this.emailService = emailService;
     }
+
     @Override
     public User saveUser(User user) {
         // Check for duplicate email
@@ -96,4 +117,79 @@ public class UserServiceImpl implements UserService {
     public User getUserById(Long id){
         return userRepository.findById(id).orElse(null);
     }
+
+    @Override
+    public void initiatePasswordReset(String email, String resetLink) {
+        Optional<User> userOpt = userRepository.findByEmail(email);
+        if (userOpt.isEmpty()) {
+            throw new UsernameNotFoundException("No user with this email exists");
+        }
+
+        User user = userOpt.get();
+        String token = UUID.randomUUID().toString();
+
+        PasswordResetToken passwordResetToken = new PasswordResetToken(
+                token,
+                user,
+                LocalDateTime.now().plusHours(1)
+        );
+        passwordResetTokenRepository.save(passwordResetToken);
+
+        String fullResetLink = resetLink + "?token=" + token;
+        emailService.sendPasswordResetEmail(user.getEmail(), fullResetLink);
+    }
+
+    @Override
+    public void resetPassword(String token, String newPassword) {
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(token)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid password reset token"));
+
+        if (resetToken.getExpiryDate().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Token has expired");
+        }
+
+        User user = resetToken.getUser();
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        // Optionally: delete token after use
+        passwordResetTokenRepository.delete(resetToken);
+    }
+
+    @Override
+    public void changePassword(String email, String currentPassword, String newPassword) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+            throw new IllegalArgumentException("Current password is incorrect");
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+    }
+
+//    @Override
+//    public List<User> getAllUsers() {
+//        return userRepository.findAll();
+//    }
+
+    @Override
+    public void deactivateUser(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        user.setRole(User.Role.EMPLOYEE); // or another logic to deactivate e.g. a boolean flag if available
+        userRepository.save(user);
+    }
+
+    @Override
+    public void activateUser(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        user.setRole(User.Role.EMPLOYEE); // or restore previous role
+        userRepository.save(user);
+    }
+
+
+
 }

@@ -1,16 +1,22 @@
 package com.codeshape.expenses.controller;
 
-import com.codeshape.expenses.dto.JwtResponse;
-import com.codeshape.expenses.dto.RefreshTokenRequest;
+import com.codeshape.expenses.dto.*;
 import com.codeshape.expenses.model.User;
 import com.codeshape.expenses.service.UserService;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
 import java.util.List;
-import com.codeshape.expenses.dto.LoginRequest;
-import com.codeshape.expenses.dto.JwtResponse;
+import java.util.Map;
+
 
 /**
  * REST Controller for User-related operations.
@@ -50,4 +56,59 @@ public class UserController {
         JwtResponse response = userService.refreshToken(request);
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/me")
+    public ResponseEntity<?> getCurrentUser(@AuthenticationPrincipal User user) {
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized");
+        }
+        Map<String, Object> userInfo = new HashMap<>();
+        userInfo.put("id", user.getId());
+        userInfo.put("name", user.getFullName());
+        userInfo.put("email", user.getEmail());
+        userInfo.put("role", user.getRole());
+        return ResponseEntity.ok(userInfo);
+    }
+    @PostMapping("/reset-password-request")
+    public ResponseEntity<String> resetPasswordRequest(@RequestBody PasswordResetRequest request,
+                                                       HttpServletRequest servletRequest) {
+        String resetLink = servletRequest.getRequestURL().toString().replace(
+                servletRequest.getServletPath(), "/reset-password"
+        );
+        userService.initiatePasswordReset(request.getEmail(), resetLink);
+        return ResponseEntity.ok("Password reset link sent to your email if it exists.");
+    }
+    @PostMapping("/reset-password")
+    public ResponseEntity<String> resetPassword(@RequestParam("token") String token, @RequestBody String newPassword) {
+        userService.resetPassword(token, newPassword);
+        return ResponseEntity.ok("Password has been reset successfully.");
+    }
+    @PutMapping("/change-password")
+    public ResponseEntity<String> changePassword(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody ChangePasswordRequest request) {
+
+        userService.changePassword(userDetails.getUsername(), request.getCurrentPassword(), request.getNewPassword());
+
+        return ResponseEntity.ok("Password changed successfully");
+    }
+
+
+    // Deactivate a user by ID (Admin only)
+    @PutMapping("/admin/users/{id}/deactivate")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<String> deactivateUser(@PathVariable Long id) {
+        userService.deactivateUser(id);
+        return ResponseEntity.ok("User deactivated successfully");
+    }
+
+    // Activate a user by ID (Admin only)
+    @PutMapping("/admin/users/{id}/activate")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<String> activateUser(@PathVariable Long id) {
+        userService.activateUser(id);
+        return ResponseEntity.ok("User activated successfully");
+    }
+
+
 }

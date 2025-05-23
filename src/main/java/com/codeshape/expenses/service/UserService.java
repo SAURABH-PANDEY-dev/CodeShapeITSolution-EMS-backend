@@ -17,4 +17,12 @@ public interface UserService {
     JwtResponse login(LoginRequest request);
     JwtResponse refreshToken(RefreshTokenRequest request);
     User getUserById(Long id);
+    void initiatePasswordReset(String email, String resetLink);
+    void resetPassword(String token, String newPassword);
+    void changePassword(String email, String currentPassword, String newPassword);
+//    List<User> getAllUsers();
+    void deactivateUser(Long id);
+    void activateUser(Long id);
+
+
 }
